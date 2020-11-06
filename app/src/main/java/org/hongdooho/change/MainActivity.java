@@ -7,6 +7,10 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
+import android.graphics.Bitmap;
+import android.graphics.Movie;
+import android.graphics.drawable.BitmapDrawable;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -30,9 +34,19 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.pedro.library.AutoPermissions;
 import com.pedro.library.AutoPermissionsListener;
 
-public class MainActivity extends AppCompatActivity implements AutoPermissionsListener {
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
-    TextView textView;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+
+
+public class MainActivity extends AppCompatActivity implements AutoPermissionsListener {
 
     SupportMapFragment mapFragment;
     GoogleMap map;
@@ -40,16 +54,39 @@ public class MainActivity extends AppCompatActivity implements AutoPermissionsLi
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        textView = findViewById(R.id.textView);
+
         mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(new OnMapReadyCallback() {
             @Override
             public void onMapReady(GoogleMap googleMap) {
                 map = googleMap;
                 startLocationService();
+                try {
+                    JSONArray jsonArray = new JSONArray(getJsonString());
+                    for(int i =0;i<jsonArray.length();i++) {
+                        JSONObject jObject = jsonArray.getJSONObject(i);
+                        String name = jObject.getString("name");
+                        int lon = jObject.getInt("longitude");
+                        int lat = jObject.getInt("latitude");
+                        MarkerOptions markerOptions = new MarkerOptions();
+                        markerOptions
+                                .position(new LatLng(lat,lon))
+                                .title(name);
+
+                        BitmapDrawable bitmapDrawable=(BitmapDrawable)getResources().getDrawable(R.drawable.marker);//마커변경
+                        Bitmap b=bitmapDrawable.getBitmap();
+                        Bitmap smallMarker = Bitmap.createScaledBitmap(b, 100, 100, false);
+                        markerOptions.icon(BitmapDescriptorFactory.fromBitmap(smallMarker));
+
+                        map.addMarker(markerOptions);
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
             }
         });
 
@@ -59,9 +96,34 @@ public class MainActivity extends AppCompatActivity implements AutoPermissionsLi
             e.printStackTrace();
         }
 
+
+
         AutoPermissions.Companion.loadAllPermissions(this, 100);
 
     }
+
+    private String getJsonString()
+    {
+        String json = "";
+
+        try {
+            InputStream is = getAssets().open("Cathedral.json");
+            int fileSize = is.available();
+
+            byte[] buffer = new byte[fileSize];
+            is.read(buffer);
+            is.close();
+
+            json = new String(buffer, "UTF-8");
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+        }
+
+        return json;
+    }
+
 
     private void setDefaultLocation() {
         //디폴트 위치, Seoul
@@ -103,7 +165,6 @@ public class MainActivity extends AppCompatActivity implements AutoPermissionsLi
                 double longitude = location.getLongitude();
                 String msg = "최근 위치 ->  Latitue : " + latitude + "\nLongitude : " + longitude;
                 showCurrentLocation(latitude, longitude);
-                textView.setText(msg);
             }
 
             GPSListener gpsListener = new GPSListener();
@@ -175,7 +236,6 @@ public class MainActivity extends AppCompatActivity implements AutoPermissionsLi
 
     @Override
     public void onGranted(int i, String[] strings) {
-        Toast.makeText(this, "permissions granted : " + strings.length, Toast.LENGTH_LONG).show();
     }
 
     @Override
